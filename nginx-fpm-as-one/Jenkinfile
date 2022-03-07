@@ -10,15 +10,15 @@ pipeline {
         stage('checkout code') {
             steps {
                 dir("${APP_CODE_DIR_NAME}") { 
-                   git branch: 'master', credentialsId: 'gitea-id', url: 'http://127.0.0.1:3000/ryzen/laravel-demo.git'
+                   git branch: 'master', credentialsId: 'gitea-id', url: 'http://127.0.0.1:3000/ryzen/php-app-demo.git'
                 }
 
                 dir("${ANSIBLE_ENVIRONMENT_DIR_NAME}") {
-                   git branch: 'master', credentialsId: 'gitea-id', url: 'http://127.0.0.1:3000/ryzen/ansible-env.git'
+                   git branch: 'master', credentialsId: 'gitea-id', url: 'http://127.0.0.1:3000/ryzen/php-ansible-env.git'
                 }
 
                 dir("${ANSIBLE_PLAYBOOK_DIR_NAME}") {
-                   git branch: 'master', credentialsId: 'gitea-id', url: 'http://127.0.0.1:3000/ryzen/php-cicd.git'
+                   git branch: 'master', credentialsId: 'gitea-id', url: 'http://127.0.0.1:3000/ryzen/php-app-cicd.git'
                 }
             }
         }
