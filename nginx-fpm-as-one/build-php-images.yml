@@ -1,0 +1,64 @@
+- hosts: localhost
+  gather_facts: false
+  vars:
+     dockerimg_registry: "127.0.0.1:5000"
+     push_to_registry: true
+     appbase_dockerfile_name: "Dockerfile.alpine.app-base"
+     appbase_dockerimg_name: "ryzen/nginx-php-app-base"
+     appbase_dockerimg_version: "1.0"
+     runtime_dockerfile_name: "Dockerfile.alpine.runtime"
+     runtime_dockerimg_name:  "ryzen/nginx-php-runtime"
+     runtime_dockerimg_version: "1.0"
+     rebuild: false
+     state: 'present'
+     build_ctx_dir: "{{jenkin_workspace}}"
+     build_code_dir_name: "{{workspace_code_dir_name}}"
+     build_ansible_dir_name: "{{workspace_ansible_dir_name}}"
+
+  tasks:
+    - name: build php runtime image
+      community.docker.docker_image:
+        name: "{{runtime_dockerimg_name}}:{{runtime_dockerimg_version}}"
+        build:
+          path: "{{build_ctx_dir}}"
+          dockerfile: "{{build_ansible_dir_name}}/nginx-fpm-as-one/{{runtime_dockerfile_name}}"
+          args:
+            PHP_VER: 7.3
+            DEFUALT_NGINX_CONF: "{{build_ansible_dir_name}}/nginx-fpm-as-one/default.conf"
+        source: build
+        state: "{{state}}"
+        force_source : "{{rebuild}}"
+
+    - name: Push php runtime image
+      community.docker.docker_image:
+        name: "{{runtime_dockerimg_name}}"
+        tag: "{{runtime_dockerimg_version}}"
+        repository: "{{dockerimg_registry}}/{{runtime_dockerimg_name}}"
+        source: local
+        push: yes
+      when: push_to_registry
+
+    - name: build app base image
+      community.docker.docker_image:
+        name: "{{appbase_dockerimg_name}}:{{appbase_dockerimg_version}}"
+        build:
+          path: "{{build_ctx_dir}}"
+          dockerfile: "{{build_ansible_dir_name}}/nginx-fpm-as-one/{{appbase_dockerfile_name}}"
+          args:
+            RUNTIME_IMG_NAME: "{{runtime_dockerimg_name}}"
+            RUNTIME_IMG_VER: "{{runtime_dockerimg_version}}"
+            COMPOSER_FILE_PATH: "{{build_ansible_dir_name}}/nginx-fpm-as-one/composer.json"
+        source: build
+        state: "{{state}}"
+        force_source : "{{rebuild}}"
+
+    - name: Push app base image
+      community.docker.docker_image:
+        name: "{{appbase_dockerimg_name}}"
+        tag: "{{appbase_dockerimg_version}}"
+        repository: "{{dockerimg_registry}}/{{appbase_dockerimg_name}}"
+        source: local
+        push: yes
+      when: push_to_registry
+
+      

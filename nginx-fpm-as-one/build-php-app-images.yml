@@ -1,0 +1,46 @@
+- hosts: localhost
+  gather_facts: false
+  vars:
+     dockerimg_registry: "127.0.0.1:5000"
+     push_to_registry: true
+     appbase_dockerimg_name: "ryzen/nginx-php-app-base"
+     appbase_dockerimg_version: "1.0"
+     state: 'present'
+     rebuild: true
+     app_dockerfile_name: "Dockerfile.alpine.app"
+     app_dockerimg_name: "ryzen/nginx-php-app"
+     app_dockerimg_version: "1.1"
+     build_ctx_dir: "{{jenkin_workspace}}"
+     build_code_dir_name: "{{workspace_code_dir_name}}"
+     build_ansible_dir_name: "{{workspace_ansible_dir_name}}"
+
+  tasks:
+    - name: Build app image
+      community.docker.docker_image:
+        name: "{{app_dockerimg_name}}:{{app_dockerimg_version}}"
+        build:
+          path: "{{build_ctx_dir}}"
+          dockerfile: "{{build_ansible_dir_name}}/nginx-fpm-as-one/{{app_dockerfile_name}}"
+          args:
+            APP_BASE_IMG_NAME: "{{appbase_dockerimg_name}}"
+            APP_BASE_IMG_VER: "{{appbase_dockerimg_version}}"
+            SOURCE_CODE_PATH: "{{build_code_dir_name}}"
+        source: build
+        state: present
+        force_source : "{{rebuild}}"
+
+    - name: Remove remote image first
+      community.docker.docker_image:
+        state: absent
+        name: "{{dockerimg_registry}}/{{app_dockerimg_name}}"
+        tag: "{{app_dockerimg_version}}"
+      when: rebuild 
+
+    - name: Push app image
+      community.docker.docker_image:
+        name: "{{app_dockerimg_name}}"
+        tag: "{{app_dockerimg_version}}"
+        repository: "{{dockerimg_registry}}/{{app_dockerimg_name}}"
+        source: local
+        push: yes
+      when: push_to_registry

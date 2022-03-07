@@ -1,0 +1,93 @@
+---
+# tasks file for containerized-php
+ - name: Make sure app base directory exists
+   block:
+     - name: Check app base directory exists
+       stat:
+         path: "{{app_config.app_base_path}}"
+       register: app_base_dir_check
+ 
+     - name: Create app base diretory if not exist
+       file:
+          path: "{{app_config.app_base_path}}"
+          state: directory
+          owner: www-data
+          group: www-data
+          mode: '0755'
+       when: not app_base_dir_check.stat.exists
+
+ - name: Check and get old container info
+   community.docker.docker_container_info:
+     name: "{{previous_container_name}}"
+   register: check_container_result
+ 
+ - name: Stop old version container if container exists
+   block:
+    - name: Stop old version container
+      community.docker.docker_container:
+        name: "{{previous_container_name}}"
+        state: stopped
+
+   when: check_container_result.exists 
+       
+ - name: Check and get new container info
+   community.docker.docker_container_info:
+     name: "{{app_container_name}}"
+   register: check_container_result
+
+ - name: End playbook if container exists
+   block:
+    - name: Make sure is running
+      community.docker.docker_container:
+        name: "{{app_container_name}}"
+        state: started
+
+    - meta: end_play
+   when: check_container_result.exists and force_pull == false
+
+ - name: create docker volume to persist
+   community.docker.docker_volume:
+     name: "{{docker_config.data_volume}}"
+     state: present
+
+ - name: Generate env, config file
+   block:
+     - name: Create env file and copy to app base directory
+       template:
+         src: env.j2
+         dest: "{{app_config.app_base_path}}/.env.{{app_container_name}}"
+         owner: www-data
+         group: www-data
+         mode: '0644'
+
+ - name: pull php app image
+   community.docker.docker_image:
+     name: "{{dockerimg_registry}}/{{app_dockerimg_name}}:{{app_dockerimg_version}}"
+     source: pull
+     state: present
+     force_source: "{{force_pull}}"
+
+ - name: create the new docker php container
+   community.docker.docker_container:
+    name: "{{app_container_name}}"
+    image: "{{dockerimg_registry}}/{{app_dockerimg_name}}:{{app_dockerimg_version}}"
+    state: present
+    recreate: yes
+    ports:
+     # Publish container port 9000 as host port 8080
+     - "80:80"
+    mounts:
+      - type: bind
+        source: "{{app_config.app_base_path}}/.env.{{app_container_name}}"
+        target:  /var/www/php/.env
+
+      - type: volume
+        source: "{{docker_config.data_volume}}"
+        target: /var/www/php/storage
+
+ - name: start the new docker php container
+   community.docker.docker_container:
+    name: "{{app_container_name}}"
+    state: started
+    restart: yes
+

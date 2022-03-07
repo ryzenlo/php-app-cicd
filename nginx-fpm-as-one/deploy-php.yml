@@ -1,0 +1,11 @@
+- hosts: php-app
+  gather_facts: true
+  vars:
+     dockerimg_registry: "192.168.0.142:5000"
+     app_dockerimg_name: "ryzen/nginx-php-app"
+     app_dockerimg_version: "1.1"
+     app_container_name: "nginx-php-app_1_1"
+     previous_container_name: "nginx-php-app_1_0"
+     force_pull: true
+  roles:
+    - containerized-php

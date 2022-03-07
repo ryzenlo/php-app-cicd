@@ -1,0 +1,56 @@
+ARG PHP_VER=7.3
+FROM php:${PHP_VER}-fpm-alpine
+
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/' /etc/apk/repositories
+
+ENV PHPIZE_DEPS \
+		autoconf \
+		dpkg-dev dpkg \
+		file \
+		g++ \
+		gcc \
+		libc-dev \
+		make \
+		pkgconf \
+		re2c
+
+RUN set -eux; \
+     apk add --no-cache libzip libjpeg-turbo libpng freetype  libzip-dev \
+            libjpeg-turbo-dev libpng-dev freetype-dev \
+             $PHPIZE_DEPS; \
+    docker-php-ext-install pdo_mysql mysqli bcmath; \
+    docker-php-ext-configure gd \
+            --enable-gd-native-ttf \
+            --with-jpeg-dir=/usr/include \
+            --with-png-dir=/usr/include \
+            --with-freetype-dir=/usr/include/ && \
+    docker-php-ext-install gd;\
+    docker-php-ext-configure zip --with-libzip; \
+    docker-php-ext-install zip;\
+    pecl channel-update pecl.php.net; \
+    pecl install -o -f redis; \ 
+    docker-php-ext-enable redis;\
+    apk del libzip-dev libjpeg-turbo-dev libpng-dev freetype-dev  $PHPIZE_DEPS;
+
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer \
+     && composer config -g repo.packagist composer https://mirrors.aliyun.com/composer/
+
+RUN apk add --no-cache nginx
+
+ARG DEFUALT_NGINX_CONF
+
+COPY ${DEFUALT_NGINX_CONF} /etc/nginx/http.d/
+
+RUN  mkdir /var/www/php && echo  -en "#!/usr/bin/env sh\n\
+set -e\n\
+\n\
+php-fpm -D\n\
+nginx -g 'daemon off;'\n" > /etc/entrypoint.sh; \
+echo "9390" > /run/nginx/nginx.pid;
+
+# Clean up
+RUN rm -rf /tmp/pear
+
+WORKDIR /var/www/php
+
+CMD [ "sh", "/etc/entrypoint.sh" ]

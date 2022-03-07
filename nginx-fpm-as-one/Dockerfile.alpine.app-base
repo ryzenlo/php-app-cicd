@@ -1,0 +1,13 @@
+ARG RUNTIME_IMG_NAME
+ARG RUNTIME_IMG_VER
+FROM ${RUNTIME_IMG_NAME}:${RUNTIME_IMG_VER}
+
+WORKDIR /var/www/php/
+
+ARG COMPOSER_FILE_PATH
+
+COPY ${COMPOSER_FILE_PATH} ./
+
+RUN composer install --no-interaction --no-dev --prefer-dist --no-scripts
+
+EXPOSE 80 443 9000
